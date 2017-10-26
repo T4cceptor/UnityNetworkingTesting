@@ -1,0 +1,4 @@
+[submodule "Assets/Extensions/VRTK"]
+	path = Assets/Extensions/VRTK
+	url = git@github.com:thestonefox/VRTK.git
+	branch = master
