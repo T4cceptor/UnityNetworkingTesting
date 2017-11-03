@@ -36,6 +36,7 @@ ExportedObj/
 *.pidb
 *.booproj
 *.svd
+.vs/
 
 # Unity3D generated meta files
 *.pidb.meta
@@ -49,4 +50,5 @@ sysinfo.txt
 *.swp
 StyleCop*
 
-.vs/
+# Log files
+*.log
