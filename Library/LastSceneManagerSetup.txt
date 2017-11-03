@@ -1,4 +1,0 @@
-sceneSetups:
-- path: Assets/Extensions/VRTK/Assets/VRTK/Examples/001_CameraRig_VRPlayArea.unity
-  isLoaded: 1
-  isActive: 1
