@@ -63,6 +63,7 @@ public class PhotonTransformViewPositionControl
     /// <returns>The new position.</returns>
     public Vector3 UpdatePosition( Vector3 currentPosition )
     {
+        // use physics to calculate extrapolation offset, then apply calculated position to interpolation algorithm
         Vector3 targetPosition = GetNetworkPosition() + GetExtrapolatedPositionOffset();
 
         switch( m_Model.InterpolateOption )

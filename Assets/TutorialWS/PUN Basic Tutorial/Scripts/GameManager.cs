@@ -25,35 +25,49 @@ namespace BRB.PUNBasicTutorial
             get { return playerObj; }
         }
 
-        private void Awake()
+        private void Start()
         {
-            if (playerObj == null)
+            if (PhotonNetwork.isMasterClient)
             {
                 PhotonView playerAPV = playerA.GetComponent<PhotonView>();
                 PhotonView playerBPV = playerB.GetComponent<PhotonView>();
 
-                PhotonPlayer thisPlayer = PhotonNetwork.player;
-                PhotonPlayer otherPlayer = PhotonNetwork.otherPlayers.Length > 0 && PhotonNetwork.otherPlayers[0] != null ? PhotonNetwork.otherPlayers[0] : null;
-
-                if (PhotonNetwork.isMasterClient)
-                {
-                    playerObj = playerA;
-                    playerAPV.TransferOwnership(thisPlayer);
-                    playerBPV.TransferOwnership(otherPlayer);
+                int counter = 0;
+                for (int i = 0; i < PhotonNetwork.playerList.Length; i++) {
+                    if (PhotonNetwork.playerList[i] != PhotonNetwork.player) {
+                        if (counter == 0)
+                        {
+                            playerAPV.TransferOwnership(PhotonNetwork.playerList[i]);
+                        }
+                        else {
+                            playerBPV.TransferOwnership(PhotonNetwork.playerList[i]);
+                        }
+                        
+                        this.photonView.RPC("SetPingPongPlayer", PhotonTargets.OthersBuffered, PhotonNetwork.playerList[i].NickName, counter);
+                        counter++;
+                    }
                 }
-                else
-                {
-                    playerObj = playerB;
-                    playerBPV.TransferOwnership(thisPlayer);
-                    playerAPV.TransferOwnership(otherPlayer);
-                }
-            }
+            } 
         }
 
-        private void GetReadyForStart()
+        [PunRPC]
+        public void SetPingPongPlayer(string playerName, int playerID)
         {
+            Debug.Log("RPC received: playerName: " + playerName + ", playerID: " + playerID);
 
-        }
+            if (PhotonNetwork.playerName == playerName) {
+                // message is for us, we should do something
+
+                playerObj = playerID == 0 ? playerA : playerB;
+                PhotonView playerPV = playerObj.GetComponent<PhotonView>();
+                playerPV.TransferOwnership(PhotonNetwork.player);
+
+                InputManager im = FindObjectOfType<InputManager>();
+                im.player = playerObj;
+                im.playerRB = playerObj.GetComponent<Rigidbody>();
+                im.zStartPos = playerObj.transform.position.z;
+            }
+        }  
 
         private void AddPointForPlayer(int player)
         {

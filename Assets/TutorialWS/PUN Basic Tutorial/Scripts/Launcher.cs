@@ -45,6 +45,7 @@ namespace BRB.PUNBasicTutorial {
 
             Debug.Log("Send rate was: " + PhotonNetwork.sendRate);
             PhotonNetwork.sendRate = SendRate;
+            PhotonNetwork.sendRateOnSerialize = SendRate;
             Debug.Log("Send rate now: " + PhotonNetwork.sendRate);
         }
 
@@ -111,16 +112,25 @@ namespace BRB.PUNBasicTutorial {
 
             // #Critical: We only load if we are the first player, else we rely on  PhotonNetwork.automaticallySyncScene to sync our instance scene.
             CheckForGameStart();
+
+            if (PhotonNetwork.isMasterClient) {
+                ToggleStatus(true, "MASTERCLIENT, Waiting for other players ... " + PhotonNetwork.playerList.Length);
+            }
         }
 
         public override void OnPhotonPlayerConnected(PhotonPlayer newPlayer)
         {
             CheckForGameStart();
+
+            if (PhotonNetwork.isMasterClient)
+            {
+                ToggleStatus(true, "MASTERCLIENT, Waiting for other players ... " + PhotonNetwork.playerList.Length);
+            }
         }
 
         private void CheckForGameStart()
         {
-            if (PhotonNetwork.room.PlayerCount == 2)
+            if (PhotonNetwork.room.PlayerCount == 3 && PhotonNetwork.isMasterClient)
             {
                 Debug.Log("We load the game");
 

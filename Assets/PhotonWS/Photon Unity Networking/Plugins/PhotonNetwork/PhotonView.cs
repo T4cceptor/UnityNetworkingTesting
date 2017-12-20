@@ -310,11 +310,16 @@ public class PhotonView : Photon.MonoBehaviour
         this.ownerId = newOwnerId;  // immediately switch ownership locally, to avoid more updates sent from this client.
     }
 
-	/// <summary>
-	///Check ownerId assignment for sceneObjects to keep being owned by the MasterClient.
-	/// </summary>
-	/// <param name="newMasterClient">New master client.</param>
-	public void OnMasterClientSwitched(PhotonPlayer newMasterClient)
+    public void TransferOwnershipLocally(PhotonPlayer newOwner)
+    {
+        this.ownerId = newOwner.ID;  // immediately switch ownership locally, to avoid more updates sent from this client.
+    }
+
+    /// <summary>
+    ///Check ownerId assignment for sceneObjects to keep being owned by the MasterClient.
+    /// </summary>
+    /// <param name="newMasterClient">New master client.</param>
+    public void OnMasterClientSwitched(PhotonPlayer newMasterClient)
 	{
 		if (this.CreatorActorNr == 0 && !this.OwnerShipWasTransfered && (this.currentMasterID== -1 || this.ownerId==this.currentMasterID))
 		{
