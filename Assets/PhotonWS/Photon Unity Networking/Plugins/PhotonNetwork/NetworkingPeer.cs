@@ -4064,6 +4064,7 @@ internal class NetworkingPeer : LoadBalancingPeer, IPhotonPeerListener
             }
 
             // a client only sends updates for active, synchronized PhotonViews that are under it's control (isMine)
+            // MA: what happens if a client ignores this? and tries to force wrong / his own values onto the server / other clients??
             if (view.synchronization == ViewSynchronization.Off || view.isMine == false || view.gameObject.activeInHierarchy == false)
             {
                 continue;
