@@ -130,6 +130,7 @@ namespace BRB.PUNBasicTutorial {
 
         private void CheckForGameStart()
         {
+
             if (PhotonNetwork.room.PlayerCount == 3 && PhotonNetwork.isMasterClient)
             {
                 Debug.Log("We load the game");
@@ -170,6 +171,13 @@ namespace BRB.PUNBasicTutorial {
             Debug.LogWarning("DemoAnimator/Launcher: OnDisconnectedFromPhoton() was called by PUN");
             progressLabel.SetActive(false);
             controlPanel.SetActive(true);
+        }
+
+        public override void OnMasterClientSwitched(PhotonPlayer newMasterClient)
+        {
+            // TODO: 
+            // - leave session?
+            // - allow different master client? -> this could break the logic?
         }
         #endregion
     }
