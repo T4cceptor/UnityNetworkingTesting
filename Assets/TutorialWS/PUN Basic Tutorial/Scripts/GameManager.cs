@@ -7,6 +7,7 @@ using UnityEngine.UI;
 
 namespace BRB.PUNBasicTutorial
 {
+    [RequireComponent(typeof(PhotonView))]
     public class GameManager : Photon.PunBehaviour
     {
         public GameObject playerA;
@@ -27,6 +28,7 @@ namespace BRB.PUNBasicTutorial
 
         private void Start()
         {
+            // master client sets ownership of player objects
             if (PhotonNetwork.isMasterClient)
             {
                 PhotonView playerAPV = playerA.GetComponent<PhotonView>();
@@ -85,6 +87,73 @@ namespace BRB.PUNBasicTutorial
             scoreBText.text = "" + scoreB;
         }
 
+
+        private int receivedSamplesCounter = 0;
+        private int samplesForPingAverage = 10;
+        private float currentPingAverage = 0;
+        private float currentTimeBetweenUpdateAverage = 0;
+        private float totalPingAverage = 0;
+        private float totalLatency = 0;
+        private float totalTimeBetweenUpdates = 0;
+        float lastReceivedTime = 0;
+
+        // this is used to display the average ping
+        // idea: measure the time between two serializations to get detailed information about the general update rate and ping
+        public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
+        {
+            float currenTime = Time.realtimeSinceStartup;
+            if (stream.isWriting)
+            {
+                stream.SendNext(currenTime);
+            }
+            else
+            {
+                receivedSamplesCounter++;
+                float sendTime = (float)stream.ReceiveNext();
+
+                float timeBetweenUpdates = lastReceivedTime > 0 ? currenTime - lastReceivedTime : 0;
+                totalTimeBetweenUpdates += timeBetweenUpdates;
+
+                // important: there are a multitude of factors influencing latency and the time between two updates
+                // influencing factors:
+                // send rate: 
+                //  - can be adjusted in each application upon build time, 
+                //  - defines the amount of updates per second,
+                //  - the high this is the higher the used bandwidth is and also synchronicity is increased
+
+                // server wait time
+                // (need to reallocate where I can adjust this)
+                // time the server waits before a new update is sent
+                // this is due to the fact that the network can be relaxed by aggregating messanges,
+                // this is a technique to decrease the overhead needed to send information
+                // it introduces an artificial latency to lower bandwidth usage
+                // very suited for large servers
+
+                float latency =  currenTime - sendTime;
+                totalLatency += latency;
+
+                if (receivedSamplesCounter == samplesForPingAverage)
+                {
+                    currentPingAverage = totalLatency / samplesForPingAverage;
+                    totalPingAverage = (currentPingAverage + totalPingAverage) / 2;
+                    currentTimeBetweenUpdateAverage = totalTimeBetweenUpdates / samplesForPingAverage;
+
+                    totalTimeBetweenUpdates = 0;
+                    receivedSamplesCounter = 0;
+                    totalLatency = 0;
+
+                    PingDisplay pd = FindObjectOfType<PingDisplay>();
+                    if(pd != null)
+                    {
+                        pd.UpdatePing(currentPingAverage, totalPingAverage, currentTimeBetweenUpdateAverage);
+                    }
+                }
+
+                lastReceivedTime = currenTime;
+            }
+            
+        }
+
         /// <summary>
         /// Called when the local player left the room. We need to load the launcher scene.
         /// </summary>
@@ -96,6 +165,18 @@ namespace BRB.PUNBasicTutorial
         public void LeaveRoom()
         {
             PhotonNetwork.LeaveRoom();
+        }
+
+        public void BackToLauncher()
+        {
+            if (PhotonNetwork.isMasterClient)
+            {
+                PhotonNetwork.LoadLevel("Launcher");
+            }
+            else
+            {
+                Debug.Log("unable to execute command, client is not the master client");
+            }
         }
 
         //void LoadArena()

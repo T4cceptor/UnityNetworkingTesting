@@ -22,6 +22,9 @@ namespace BRB.PUNBasicTutorial {
         public GameObject progressLabel;
         public Text progressText;
 
+
+        public GameObject loadLevelPanel;
+
         public int SendRate = 100;
         #endregion
 
@@ -44,9 +47,12 @@ namespace BRB.PUNBasicTutorial {
             PhotonNetwork.logLevel = Loglevel;
 
             Debug.Log("Send rate was: " + PhotonNetwork.sendRate);
+            //PhotonNetwork.sendRate = 500;
             PhotonNetwork.sendRate = SendRate;
             PhotonNetwork.sendRateOnSerialize = SendRate;
             Debug.Log("Send rate now: " + PhotonNetwork.sendRate);
+
+            loadLevelPanel.SetActive(false);
         }
 
         // Use this for initialization
@@ -94,6 +100,22 @@ namespace BRB.PUNBasicTutorial {
             }
         }
 
+        public void LoadLevel(string levelName)
+        {
+
+            if (PhotonNetwork.isMasterClient && PhotonNetwork.room.PlayerCount == 3)
+            {
+                // #Critical
+                // Load the Room Level. 
+                PhotonNetwork.LoadLevel(levelName);
+            }
+            else if (PhotonNetwork.room.PlayerCount < 3)
+            {
+                // TODO: display message: "cant start game, not enough players in room"
+                Debug.Log("Unable to start game with less then 3 players (including master client)");
+            }
+        }
+
 
         #region photon magic
         public override void OnConnectedToMaster()
@@ -111,16 +133,22 @@ namespace BRB.PUNBasicTutorial {
             Debug.Log("SUCCESSFULLY JOINED A ROOM with name: " + PhotonNetwork.playerName);
 
             // #Critical: We only load if we are the first player, else we rely on  PhotonNetwork.automaticallySyncScene to sync our instance scene.
-            CheckForGameStart();
+            // CheckForGameStart();
 
-            if (PhotonNetwork.isMasterClient) {
+            if (PhotonNetwork.isMasterClient)
+            {
                 ToggleStatus(true, "MASTERCLIENT, Waiting for other players ... " + PhotonNetwork.playerList.Length);
+                loadLevelPanel.SetActive(true);
+            }
+            else
+            {
+                ToggleStatus(true, "Waiting for player 2.");
             }
         }
 
         public override void OnPhotonPlayerConnected(PhotonPlayer newPlayer)
         {
-            CheckForGameStart();
+            //CheckForGameStart();
 
             if (PhotonNetwork.isMasterClient)
             {
@@ -137,13 +165,11 @@ namespace BRB.PUNBasicTutorial {
 
                 PhotonNetwork.room.IsOpen = false;
 
-                // #Critical
-                // Load the Room Level. 
-                PhotonNetwork.LoadLevel("PingpongGame");
+                
             }
             else
             {
-                ToggleStatus(true, "Waiting for player 2.");
+                
             }
         }
 

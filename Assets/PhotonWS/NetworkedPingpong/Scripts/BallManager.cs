@@ -18,49 +18,49 @@ public class BallManager : MonoBehaviour {
         thisPV.TransferOwnership(PhotonNetwork.masterClient);
     }
 
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other == playerAGoal)
-        {
+    //private void OnTriggerEnter(Collider other)
+    //{
+    //    if (other == playerAGoal)
+    //    {
 
-        }
-        if (other == playerBGoal) { }
+    //    }
+    //    if (other == playerBGoal) { }
 
-    }
+    //}
 
-    private void OnCollisionEnter(Collision collision)
-    {
+    //private void OnCollisionEnter(Collision collision)
+    //{
 
-        Rigidbody thisRB = GetComponent<Rigidbody>();
-        //thisRB.velocity += thisRB.velocity * factor;
+    //    Rigidbody thisRB = GetComponent<Rigidbody>();
+    //    //thisRB.velocity += thisRB.velocity * factor;
 
-        // get the PhotonView of the collider, if one is present
-        PhotonView pv = collision.collider.GetComponent<PhotonView>();
-        if (pv != null)
-        {
-            // if we collided with a PhotonView object, 
-            // we check if the owner of the PhotonView is the same as the owner of the ball
-            // if this is not the case we want to transfer ownership of the ball
-            //if (pv.ownerId != thisPV.ownerId && !PhotonNetwork.isMasterClient)
-            //{
-            //    thisPV.TransferOwnershipLocally(pv.owner);
-            //    // TODO: send message to master client that we are controlling the object now
-            //}
-            thisPV.TransferOwnership(pv.owner);
-        }
-    }
+    //    // get the PhotonView of the collider, if one is present
+    //    PhotonView pv = collision.collider.GetComponent<PhotonView>();
+    //    if (pv != null)
+    //    {
+    //        // if we collided with a PhotonView object, 
+    //        // we check if the owner of the PhotonView is the same as the owner of the ball
+    //        // if this is not the case we want to transfer ownership of the ball
+    //        //if (pv.ownerId != thisPV.ownerId && !PhotonNetwork.isMasterClient)
+    //        //{
+    //        //    thisPV.TransferOwnershipLocally(pv.owner);
+    //        //    // TODO: send message to master client that we are controlling the object now
+    //        //}
+    //        thisPV.TransferOwnership(pv.owner);
+    //    }
+    //}
 
-    private void OnCollisionExit(Collision collision)
-    {
-        // if we exit a collision we transfer ownership back to the MasterClient
-        //if (thisPV.owner != PhotonNetwork.masterClient)
-        //{
-        //    thisPV.TransferOwnershipLocally(PhotonNetwork.masterClient);
-        //}
-        //else {
+    //private void OnCollisionExit(Collision collision)
+    //{
+    //    // if we exit a collision we transfer ownership back to the MasterClient
+    //    //if (thisPV.owner != PhotonNetwork.masterClient)
+    //    //{
+    //    //    thisPV.TransferOwnershipLocally(PhotonNetwork.masterClient);
+    //    //}
+    //    //else {
             
-        //}
-        thisPV.TransferOwnership(PhotonNetwork.masterClient);
+    //    //}
+    //    thisPV.TransferOwnership(PhotonNetwork.masterClient);
 
-    }
+    //}
 }

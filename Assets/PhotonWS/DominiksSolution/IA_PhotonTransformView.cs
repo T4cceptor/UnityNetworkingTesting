@@ -105,7 +105,7 @@ namespace Innoactive.Toolkit.Multiuser
         protected virtual void Update()
         {
             if (this.photonView == null || this.photonView.isMine == true || PhotonNetwork.connected == false)
-            {
+            { 
                 return;
             }
 

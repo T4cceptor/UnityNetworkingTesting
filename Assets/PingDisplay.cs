@@ -18,25 +18,31 @@ public class PingDisplay : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-        // Get ping from photon
-        int ping = PhotonNetwork.GetPing();
+        //// Get ping from photon
+        //int ping = PhotonNetwork.GetPing();
 
-        // display current ping
-        pingText.text = "Ping: " + ping;
+        //// display current ping
+        //pingText.text = "Ping: " + ping;
 
-        // save current ping for calculation of average ping over avgPingWindowSize samples
-        pings[counter] = ping;
+        //// save current ping for calculation of average ping over avgPingWindowSize samples
+        //pings[counter] = ping;
 
-        // increment counter, and calculate the modulo from it to stay in range of the array
-        counter = (counter + 1) % avgPingWindowSize;
+        //// increment counter, and calculate the modulo from it to stay in range of the array
+        //counter = (counter + 1) % avgPingWindowSize;
 
-        float pingSum = 0.0f;
-        for (int i = 0; i < pings.Length; i++)
-        {
-            pingSum += pings[i];
-        }
-        avgPing = pingSum / avgPingWindowSize;
-        avgPingText.text = "Avg. Ping: " + avgPing;
+        //float pingSum = 0.0f;
+        //for (int i = 0; i < pings.Length; i++)
+        //{
+        //    pingSum += pings[i];
+        //}
+        //avgPing = pingSum / avgPingWindowSize;
+        //avgPingText.text = "Avg. Ping: " + avgPing;
 
+    }
+
+    public void UpdatePing(float currentPing, float totalPing, float timeBetweenUpdates)
+    {
+        pingText.text = "Current avg. ping: " + currentPing + "\n timeBetweenUpdates: " + timeBetweenUpdates;
+        avgPingText.text = "Total avg. ping: " + totalPing;
     }
 }

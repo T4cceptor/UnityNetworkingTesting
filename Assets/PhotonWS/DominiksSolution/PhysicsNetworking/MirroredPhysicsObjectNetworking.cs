@@ -1,4 +1,4 @@
-﻿#define DRAW_PHYSICS_PROXIES
+﻿//#define DRAW_PHYSICS_PROXIES
 
 using System;
 using System.Collections.Generic;
@@ -15,7 +15,9 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
     [SerializeField]
     private float rotationCorrectionPerSecond = 0.5f;
 
-#if DRAW_PHYSICS_PROXIES
+    [SerializeField]
+    private bool drawPhysicsProxy = true;
+
     private static Material proxyMaterial = null;
     private static Material ProxyMaterial
     {
@@ -36,7 +38,6 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
             return proxyMaterial;
         }
     }
-#endif
 
 
     protected PhotonView photonView;
@@ -49,8 +50,23 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
     private Vector3 lastReceivedPosition;
     private Quaternion lastReceivedRotation;
 
-    public Vector3 rigidbodyVelocity;
-    public Quaternion rigidbodyRotation;
+    private Vector3 lastSentRBVelocity;
+    private Vector3 lastSentRBAngularVelocity;
+
+    private Vector3 lastSentPosition;
+    private Quaternion lastSentRotation;
+    private Vector3 lastSentScale;
+
+    [SerializeField]
+    private Vector3 rigidbodyVelocity;
+
+    [SerializeField]
+    private Quaternion rigidbodyRotation;
+
+    [SerializeField]
+    private bool logPhotonViewChanges;
+
+
 
     private float lastSendTime = 0;
 
@@ -112,12 +128,23 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
         if (stream.isWriting)
         {
             EnsureProxyState(false);
+
+            bool sendHeartbeat = Time.time < lastSendTime + maxNoSendDuration;
+
             if (rigidBody.IsSleeping())
             {
                 // don't send data for deactivated rigid bodies, unless timeout is exceeded
                 // TODO: spread this across different rigid bodies, so that not all send at once
-                if (Time.time < lastSendTime + maxNoSendDuration)
+                if (sendHeartbeat)
                     return;
+            }
+
+            // check if change is significant enough to warrant an update message
+            // ignore changes that are very small and / or potentially unnoticeable
+            // this piece of code is basically the standard DIA dead reckoning algorithm
+            if(rigidbodyNeedsUpdate() == false && transformNeedsUpdate() == false && sendHeartbeat == false)
+            {
+                return;
             }
 
             PhysicsState state = PhysicsState.NONE;
@@ -134,17 +161,23 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
                 state |= PhysicsState.USE_GRAVITY;
             }
 
-            stream.SendNext(state);
-            stream.SendNext(transform.position);
-            stream.SendNext(transform.rotation);
-            stream.SendNext(transform.localScale); 
-            // todo: only send occasionally, or when changed
+            lastSentPosition = transform.position;
+            lastSentRotation = transform.rotation;
+            lastSentScale = transform.localScale;
 
-            if (!rigidBody.isKinematic && !rigidBody.IsSleeping())
+            stream.SendNext(state);
+            stream.SendNext(lastSentPosition);
+            stream.SendNext(lastSentRotation);
+            stream.SendNext(lastSentScale);
+            // todo: only send occasionally, or when changed
+            bool updateRB = !rigidBody.isKinematic && !rigidBody.IsSleeping();
+            stream.SendNext(updateRB);
+            if (updateRB)
             {
                 stream.SendNext(rigidBody.velocity);
                 stream.SendNext(rigidBody.angularVelocity);
-                Debug.Log("Send new rigidbody values: " + rigidBody.velocity.ToString());
+                log("Send new rigidbody values: " + rigidBody.velocity.ToString());
+                
             }
             lastSendTime = Time.time;
         }
@@ -161,27 +194,75 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
             bool updatedRbValues = false;
             physicsProxyRigidbody.useGravity = (state &= PhysicsState.USE_GRAVITY) != PhysicsState.NONE;
 
-            if ((state &= PhysicsState.KINEMATIC) != PhysicsState.NONE )
-            {
-                if ((state &= PhysicsState.KINEMATIC) != PhysicsState.NONE)
-                {
-                    physicsProxyRigidbody.Sleep();
-                }
-                else
-                {
+            //if ((state &= PhysicsState.KINEMATIC) != PhysicsState.NONE )
+            //{
+            //    if ((state &= PhysicsState.KINEMATIC) != PhysicsState.NONE)
+            //    {
+            //        physicsProxyRigidbody.Sleep();
+            //    }
+            //    else
+            //    {
                     
-                }
-            }
+            //    }
+            //}
 
-            physicsProxyRigidbody.velocity = (Vector3)stream.ReceiveNext();
-            physicsProxyRigidbody.angularVelocity = (Vector3)stream.ReceiveNext();
-            Debug.Log("New RB values: " + physicsProxyRigidbody.velocity.ToString());
-            updatedRbValues = true;
+            bool updateRB = (bool)stream.ReceiveNext();
+            if (updateRB)
+            {
+                physicsProxyRigidbody.velocity = (Vector3)stream.ReceiveNext();
+                physicsProxyRigidbody.angularVelocity = (Vector3)stream.ReceiveNext();
+                log("New RB values: " + physicsProxyRigidbody.velocity.ToString());
+                
+                updatedRbValues = true;
+            }
+            
 
             if (!updatedRbValues) {
-                Debug.Log("Updated transform without rigidbody!");
+                log("Updated transform without rigidbody!");
             }
         }
+    }
+
+    private void log(string newLog)
+    {
+        if (logPhotonViewChanges)
+        {
+            Debug.Log(newLog);
+        }
+    }
+
+    private bool transformNeedsUpdate()
+    {
+        bool result = false;
+
+        Vector3 positionChange = lastSentPosition - transform.position;
+        bool positionChanged = positionChange.magnitude > 0.01; // if scale is maintained, 0.01 should be equal to 1 cm
+
+        float rotationChange = Quaternion.Angle(lastSentRotation, transform.rotation);
+        bool rotationChanged = rotationChange > 2; // TODO: check if this is correct and adjust appropriately
+
+        Vector3 scaleChange = lastSentScale - transform.localScale;
+        bool scaleChanged = scaleChange.magnitude > 0.1; // TODO: check if this is correct and adjust appropriately
+
+        result = positionChanged || rotationChanged || scaleChanged;
+
+        return result;
+    }
+
+    private bool rigidbodyNeedsUpdate()
+    {
+        bool result = false;
+        Rigidbody currentRB = rigidBody;
+
+        Vector3 velocityChange = lastSentRBVelocity - currentRB.velocity;
+        bool velocityChanged = velocityChange.magnitude > 0.01;
+
+        Vector3 angularVelocityChange = lastSentRBAngularVelocity - currentRB.angularVelocity;
+        bool angularVelocityChanged = angularVelocityChange.magnitude > 0.01;
+
+        result = velocityChanged || angularVelocityChanged;
+
+        return result;
     }
 
     void EnsureProxyState(bool useProxy)
@@ -217,8 +298,12 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
         float positionFactor = Mathf.Pow(positionCorrectionPerSecond, Time.fixedDeltaTime);
         float rotationFactor = Mathf.Pow(rotationCorrectionPerSecond, Time.fixedDeltaTime);
 
+        log("positionFactor: " + positionFactor + " ,rotationFactor: " + rotationFactor);
+
+        log("current position: " + transform.position);
         Vector3 positionError = physicsProxy.transform.position - transform.position;
         transform.position += positionFactor * positionError;
+        log("new (corrected) position: " + transform.position);
 
         Quaternion rotationError = Quaternion.Inverse(transform.rotation) * physicsProxy.transform.rotation;
         transform.rotation *= Quaternion.Slerp(Quaternion.identity, rotationError, rotationFactor);
@@ -330,7 +415,7 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
         component.collisionDetectionMode = originalComponent.collisionDetectionMode;
         component.centerOfMass = originalComponent.centerOfMass;
         component.inertiaTensorRotation = originalComponent.inertiaTensorRotation;
-        component.inertiaTensor = originalComponent.inertiaTensor;
+        // component.inertiaTensor = originalComponent.inertiaTensor;
         component.detectCollisions = originalComponent.detectCollisions;
         component.interpolation = originalComponent.interpolation;
         component.solverIterations = originalComponent.solverIterations;
@@ -365,11 +450,12 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
         component.center = originalComponent.center;
         component.size = originalComponent.size;
 
-#if DRAW_PHYSICS_PROXIES
-        GameObject vis = CreateProxyVisualization(newParent, PrimitiveType.Cube); 
-        vis.transform.localPosition = component.center;
-        vis.transform.localScale = component.size;
-#endif
+        if (drawPhysicsProxy)
+        {
+            GameObject vis = CreateProxyVisualization(newParent, PrimitiveType.Cube);
+            vis.transform.localPosition = component.center;
+            vis.transform.localScale = component.size;
+        }
 
         return component;
     }
@@ -383,31 +469,32 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
         component.height = originalComponent.height;
         component.direction = originalComponent.direction;
 
-#if DRAW_PHYSICS_PROXIES
-        GameObject vis = CreateProxyVisualization(newParent, PrimitiveType.Capsule);
-        vis.transform.localPosition = component.center;
-        vis.transform.localScale = new Vector3(2 * component.radius, component.height / 2, 2 * component.radius);
-        switch (component.direction)
-        {
-            case 0:
-                {
-                    vis.transform.rotation = new Quaternion(0, 0, 0.7071f, 0.7071f);
-                    break;
-                }
-            default:
-            case 1:
-                {
-                    // already oriented correctly
-                    break;
-                }
-            case 2:
-                {
-                    vis.transform.rotation = new Quaternion(0.7071f, 0, 0, 0.7071f);
-                    break;
-                }
+        if (drawPhysicsProxy)
+       { 
+            GameObject vis = CreateProxyVisualization(newParent, PrimitiveType.Capsule);
+            vis.transform.localPosition = component.center;
+            vis.transform.localScale = new Vector3(2 * component.radius, component.height / 2, 2 * component.radius);
+            switch (component.direction)
+            {
+                case 0:
+                    {
+                        vis.transform.rotation = new Quaternion(0, 0, 0.7071f, 0.7071f);
+                        break;
+                    }
+                default:
+                case 1:
+                    {
+                        // already oriented correctly
+                        break;
+                    }
+                case 2:
+                    {
+                        vis.transform.rotation = new Quaternion(0.7071f, 0, 0, 0.7071f);
+                        break;
+                    }
 
+            }
         }
-#endif
 
         return component;
     }
@@ -434,14 +521,18 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
 
     GameObject CreateProxyVisualization(GameObject newParent, PrimitiveType type)
     {
-        GameObject vis = GameObject.CreatePrimitive(type);
-        vis.GetComponent<MeshRenderer>().sharedMaterial = ProxyMaterial;
-        vis.transform.parent = newParent.transform;
+        if (drawPhysicsProxy) { 
+            GameObject vis = GameObject.CreatePrimitive(type);
+            vis.GetComponent<MeshRenderer>().sharedMaterial = ProxyMaterial;
+            vis.transform.parent = newParent.transform;
 
-        Collider coll = vis.GetComponent<Collider>();
-        if (coll != null) Destroy(coll);
+            Collider coll = vis.GetComponent<Collider>();
+            if (coll != null) Destroy(coll);
 
-        return vis;
+
+            return vis;
+        }
+        return null;
     }
 
     GameObject GetProxyObject(Dictionary<GameObject, GameObject> proxies, GameObject original)
