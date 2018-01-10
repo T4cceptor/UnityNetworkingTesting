@@ -57,6 +57,8 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
     private Quaternion lastSentRotation;
     private Vector3 lastSentScale;
 
+    private bool updatedSleepingRigidbody = false;
+
     [SerializeField]
     private Vector3 rigidbodyVelocity;
 
@@ -127,26 +129,38 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
     {
         if (stream.isWriting)
         {
+            bool sendHeartbeat = Time.time > lastSendTime + maxNoSendDuration;
+            if (sendHeartbeat == false)
+            {
+                // TODO: check if this is working correctly
+                // TODO: set remote proxy sleeping
+                if (rigidBody.IsSleeping())
+                {
+                    // don't send data for deactivated rigid bodies, unless timeout is exceeded
+                    // TODO: spread this across different rigid bodies, so that not all send at once
+                    if(updatedSleepingRigidbody == true)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        log("Sending sleeping rb info!");
+                    }
+                }
+
+                // check if change is significant enough to warrant an update message
+                // ignore changes that are very small and / or potentially unnoticeable
+                // this piece of code is basically the standard DIA dead reckoning algorithm
+
+                //if (rigidbodyNeedsUpdate() == false && transformNeedsUpdate() == false)
+                //{
+                //    return;
+                //}
+            }
+
             EnsureProxyState(false);
 
-            bool sendHeartbeat = Time.time < lastSendTime + maxNoSendDuration;
-
-            if (rigidBody.IsSleeping())
-            {
-                // don't send data for deactivated rigid bodies, unless timeout is exceeded
-                // TODO: spread this across different rigid bodies, so that not all send at once
-                if (sendHeartbeat)
-                    return;
-            }
-
-            // check if change is significant enough to warrant an update message
-            // ignore changes that are very small and / or potentially unnoticeable
-            // this piece of code is basically the standard DIA dead reckoning algorithm
-            if(rigidbodyNeedsUpdate() == false && transformNeedsUpdate() == false && sendHeartbeat == false)
-            {
-                return;
-            }
-
+            updatedSleepingRigidbody = false;
             PhysicsState state = PhysicsState.NONE;
             if (rigidBody.isKinematic)
             {
@@ -155,6 +169,7 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
             if (rigidBody.IsSleeping())
             {
                 state |= PhysicsState.SLEEPING;
+                updatedSleepingRigidbody = true;
             }
             if (rigidBody.useGravity)
             {
@@ -169,6 +184,7 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
             stream.SendNext(lastSentPosition);
             stream.SendNext(lastSentRotation);
             stream.SendNext(lastSentScale);
+
             // todo: only send occasionally, or when changed
             bool updateRB = !rigidBody.isKinematic && !rigidBody.IsSleeping();
             stream.SendNext(updateRB);
@@ -177,7 +193,6 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
                 stream.SendNext(rigidBody.velocity);
                 stream.SendNext(rigidBody.angularVelocity);
                 log("Send new rigidbody values: " + rigidBody.velocity.ToString());
-                
             }
             lastSendTime = Time.time;
         }
@@ -186,6 +201,13 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
             // EnsureProxyState(false);
 
             PhysicsState state = (PhysicsState) stream.ReceiveNext();
+            if(state == PhysicsState.SLEEPING)
+            {
+                physicsProxyRigidbody.Sleep();
+                physicsProxyRigidbody.velocity = Vector3.zero;
+                physicsProxyRigidbody.angularVelocity = Vector3.zero;
+            }
+
             EnsureProxyState(true);
             physicsProxyRigidbody.isKinematic = false;
             physicsProxy.transform.position = (Vector3) stream.ReceiveNext();
@@ -291,9 +313,16 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
 
     void UpdateOriginalFromProxy()
     {
+        bool rigidBodyWasSleeping = physicsProxyRigidbody.IsSleeping();
         // re-enable override, in case it was changed externally
+        // MA: Problem here: we wake the rigidbody up as we change values
         rigidBody.detectCollisions = false;
         rigidBody.isKinematic = true;
+        if (rigidBodyWasSleeping)
+        {
+            // MA: let the RB sleep again after we changed some values if it has previously slept already
+            rigidBody.Sleep();
+        }
 
         float positionFactor = Mathf.Pow(positionCorrectionPerSecond, Time.fixedDeltaTime);
         float rotationFactor = Mathf.Pow(rotationCorrectionPerSecond, Time.fixedDeltaTime);
@@ -415,7 +444,7 @@ public class MirroredPhysicsObjectNetworking : MonoBehaviour
         component.collisionDetectionMode = originalComponent.collisionDetectionMode;
         component.centerOfMass = originalComponent.centerOfMass;
         component.inertiaTensorRotation = originalComponent.inertiaTensorRotation;
-        // component.inertiaTensor = originalComponent.inertiaTensor;
+        component.inertiaTensor = originalComponent.inertiaTensor;
         component.detectCollisions = originalComponent.detectCollisions;
         component.interpolation = originalComponent.interpolation;
         component.solverIterations = originalComponent.solverIterations;

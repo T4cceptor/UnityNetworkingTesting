@@ -46,6 +46,7 @@ public class PhotonStatsGui : MonoBehaviour
 
     public void Start()
     {
+        DontDestroyOnLoad(transform.gameObject);
         if (this.statsRect.x <= 0)
         {
             this.statsRect.x = Screen.width - this.statsRect.width;

@@ -42,7 +42,8 @@ public class PingDisplay : MonoBehaviour {
 
     public void UpdatePing(float currentPing, float totalPing, float timeBetweenUpdates)
     {
-        pingText.text = "Current avg. ping: " + currentPing + "\n timeBetweenUpdates: " + timeBetweenUpdates;
+        float photonPing = PhotonNetwork.GetPing();
+        pingText.text = "Current avg. ping: " + currentPing + "\n timeBetweenUpdates: " + timeBetweenUpdates + "\n photon ping: " + photonPing;
         avgPingText.text = "Total avg. ping: " + totalPing;
     }
 }

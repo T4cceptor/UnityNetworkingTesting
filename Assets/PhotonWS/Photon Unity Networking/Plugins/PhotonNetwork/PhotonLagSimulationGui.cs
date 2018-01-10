@@ -12,7 +12,7 @@ using UnityEngine;
 /// This MonoBehaviour is a basic GUI for the Photon client's network-simulation feature.
 /// It can modify lag (fixed delay), jitter (random lag) and packet loss.
 /// </summary>
-/// \ingroup optionalGui
+/// \ingroup optionalGui 
 public class PhotonLagSimulationGui : MonoBehaviour
 {
     /// <summary>Positioning rect for window.</summary>
@@ -30,6 +30,7 @@ public class PhotonLagSimulationGui : MonoBehaviour
     public void Start()
     {
         this.Peer = PhotonNetwork.networkingPeer;
+        DontDestroyOnLoad(transform.gameObject);
     }
 
     public void OnGUI()
